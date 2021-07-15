@@ -1,8 +1,6 @@
 # NLP_Project
 
-## 질 수 없조
-
-## Team Info
+## 질 수 없조!
 
 ### Meambers
 
