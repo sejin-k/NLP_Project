@@ -10,29 +10,28 @@ MODEL_PATH = "data/"
 consulting_df = pd.DataFrame({"구분":[], "제목":[], "질문":[], "답변":[]})
 
 
-def get_data(url, consulting_df):
-    '''상담 데이터 가져오기
-    '''
+def get_data(url, consulting_df, errorURL):
     response = requests.get(url)
 
     if response.status_code == 200:
-        # 필요 내용 데이터 부분 HTML 가져오기
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
         text = soup.find("div",{"class": "document_box"})
         data = text.find_all(["dt", "dd"])
         
         additional_data = {}
-        # 4가지 데이터 저장
         for i in range(4):
             additional_data[data[2*i].get_text()] = data[2*i+1].get_text()
-        
-        # DataFrame에 추가
+            
         consulting_df = consulting_df.append(additional_data, ignore_index=True)
         
-        # Go to next page
         next_page = text.find_all("span",{"class": "pf_tit"})
-        # 마지막 페이지일 경우 정지
+        if len(next_page) != 2:
+            next_page = soup.find_all("span",{"class": "pf_tit"})
+            print("document_box load Error")
+            print("current URL: ", url)
+            errorURL.append(url)
+        
         if next_page[1].get_text().strip() == "다음글이 없습니다.":
             return consulting_df, -1
         else:
@@ -53,19 +52,17 @@ def save_data(df):
     df.to_csv(MODEL_PATH + "Law_Consulting_Data.csv", encoding='utf-8-sig')
 
 if __name__ == "__main__":
+    errorURL = []
+    
     # 첫번째 페이지
-    consulting_df, nextURL = get_data(url, consulting_df)
-    
-#     i = 0 # test break
-    
-    try:
-        while(nextURL != -1):
-            consulting_df, nextURL = get_data(nextURL, consulting_df)
+    consulting_df, nextURL = get_data(url, consulting_df, errorURL)
 
-#             # test용 50개
-#             i+=1
-#             if i > 50: break
-    except:
-        print(nextURL)
+    while(nextURL != -1):
+        try:
+            consulting_df, nextURL = get_data(nextURL, consulting_df, errorURL)
+        except Exception as e: # ConnectionError -> 빠르게 여러번 요청해서 오류 발생
+            print(e)
+            print("URL: "nextURL)
+            time.sleep(5)
 
     save_data(consulting_df)
