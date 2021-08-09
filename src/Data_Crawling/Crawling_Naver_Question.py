@@ -31,8 +31,7 @@ class Writer(object):
         
         user_os = str(platform.system())
         if user_os == "Windows":
-            self.file = open(file_name, 'w', encoding='euc-kr', newline='')
-        
+            self.file = open(file_name, 'w', encoding='utf-8', newline='')
         
     def write_row(self, row):
         self.csv_writer.writerow(row)
@@ -42,12 +41,10 @@ class Writer(object):
 
 
 class NaverLawCrawler(object):
-    def __init__(self, category, lawer):
+    def __init__(self):
         self.main_url = "https://kin.naver.com" # 지식인 페이지
         self.expert_url = "https://kin.naver.com/qna/expertAnswerList.naver?dirId="
         self.notexpert_url = "https://kin.naver.com/qna/list.naver?dirId="
-
-        self.sub_url = self.expert_url if lawer else self.notexpert_url
 
         self.dirIds = {
             '교통사고,위반' : "60201",
@@ -74,22 +71,18 @@ class NaverLawCrawler(object):
             '노동법' : "60222",
             '산업재해' : "60225"
         }
-        self.category = category
 
-        self.select_dirIds = self.dirIds.get(category)
-
-        self.question_urls = []
-
-        self.AnswerLaw = '_lawer' if lawer else '_notlawer' # 변호사 답변
-
-    def crawling(self):
-        print("######## (",self.category, self.AnswerLaw,")crawling start ########")
-
+    def crawling(self, category, lawer):
         # csv 파일 작성 setting
-        writer = Writer(category=self.category, lawer=self.AnswerLaw)
+        answer = '_Lawer' if lawer else '_NotLawer'
+        writer = Writer(category=category, lawer=answer)
+
+        print("######## (",category, answer, ") crawling start ########")
 
         # 해당 카테고리의 법(질문) url 만들기
-        category_url = self.sub_url + self.select_dirIds + "&page="
+        sub_url = self.expert_url if lawer else self.notexpert_url
+        category_url = sub_url + self.dirIds.get(category) + "&page="
+        question_urls = []
 
         for i in range(1, 101): # 네이버는 법 질문이 최대 99페이지임
             temp_url = category_url + str(i)
@@ -103,33 +96,31 @@ class NaverLawCrawler(object):
             # 현재 페이지에 있는 url들 모두 먼저 모아두기 (왜냐면 계속 query time에 따라 updat되니깐 미리 저장)
             if titles:
                 for title in titles:
-                    self.question_urls.append(self.main_url+title.find('a')['href'])
+                    question_urls.append(self.main_url+title.find('a')['href'])
             else: # 만약에 더이상 없으면 title 출력 x 그럼 거기서 stop
-                print("######## catergory : ", self.category, " => (max page :", len(self.question_urls),") ########")
+                print("######## catergory : ", category, " => (max page :", len(question_urls),") ########")
                 break
-        
+        else: print("######## catergory : ", category, " => (max page :", len(question_urls),") ########")
+
         # self.question_urls로 들어가서 시작하기
-        for question in self.question_urls:
-            response = requests.get(question)
+        for question in question_urls:
+            response = requests.get(question, timeout=15, headers={'User-Agent':'Mozilla/5.0'})
 
             if response.status_code == 200:
                 html = response.text
                 soup = BeautifulSoup(html, 'html.parser')
 
                 FAQ = soup.find("div", class_="title")
-                FAQ = FAQ.get_text(" ", strip=True).replace('\u200b', ' ').replace('\xa0', ' ').replace('\xa9',' ').replace('\ufeff', ' ') \
-                    if FAQ else ''
+                FAQ = FAQ.get_text(" ", strip=True) if FAQ else ''
 
                 CONTENT = soup.find("div", class_="c-heading__content")
-                CONTENT = CONTENT.get_text(" ", strip=True).replace('\u200b', ' ').replace('\xa0', ' ').replace('\xa9',' ').replace('\ufeff', ' ')\
-                     if CONTENT else ''
+                CONTENT = CONTENT.get_text(" ", strip=True) if CONTENT else ''
 
                 DIV_CASE = soup.find("div", class_="tag-list tag-list--end-title").find("a")
                 DIV_CASE = DIV_CASE.get_text(" ", strip=True)[10:] if DIV_CASE else ''
 
                 ANSWER = soup.find("div", class_="_endContentsText c-heading-answer__content-user")
-                ANSWER = ANSWER.get_text(" ", strip=True).replace('\u200b', ' ').replace('\xa0', ' ').replace('\xa9',' ').replace('\ufeff', ' ') \
-                     if ANSWER else ''
+                ANSWER = ANSWER.get_text(" ", strip=True) if ANSWER else ''
                 
                 # CSV파일에 작성
                 writer.write_row([FAQ, CONTENT, DIV_CASE, ANSWER])
@@ -147,10 +138,10 @@ if __name__ == "__main__":
         '계약', '법학,법이론', '헌법', '민사소송', '민사집행', '신용,파산',
         '형사사건', '손해배상', '언론,미디어법', '행정법', '노동법', '산업재해'
     ]
+    Crawler = NaverLawCrawler() # 변호사 답변 질문 리스트
      # 변호사 답변 질문 리스트
     for category in crawling_list:
-        Crawler = NaverLawCrawler(category, True) # 변호사 답변 질문 리스트
-        Crawler.crawling()
-        Crawler = NaverLawCrawler(category, False) # 변호사 답변 질문 리스트
-        Crawler.crawling()
-        break
+        Crawler.crawling(category, True)
+        Crawler.crawling(category, False)
+        
+        
