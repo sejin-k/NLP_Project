@@ -59,7 +59,7 @@ class NaverLawCrawler(object):
             '지식재산권' : "60205",
             '청소년관련법' : "60208",
             '계약' : "60212",
-            '법학, 법이론' : "60215",
+            '법학,법이론' : "60215",
             '헌법' : "60218",
             '민사소송' : "60221",
             '민사집행' : "60224",
@@ -116,8 +116,11 @@ class NaverLawCrawler(object):
                 CONTENT = soup.find("div", class_="c-heading__content")
                 CONTENT = CONTENT.get_text(" ", strip=True) if CONTENT else ''
 
-                DIV_CASE = soup.find("div", class_="tag-list tag-list--end-title").find("a")
-                DIV_CASE = DIV_CASE.get_text(" ", strip=True)[10:] if DIV_CASE else ''
+                try:
+                    DIV_CASE = soup.find("div", class_="tag-list tag-list--end-title").find("a")
+                    DIV_CASE = DIV_CASE.get_text(" ", strip=True)[10:] if DIV_CASE else ''
+                except:
+                    DIV_CASE = ''
 
                 ANSWER = soup.find("div", class_="_endContentsText c-heading-answer__content-user")
                 ANSWER = ANSWER.get_text(" ", strip=True) if ANSWER else ''
@@ -128,19 +131,19 @@ class NaverLawCrawler(object):
                 print("@@@@@@@ this page removed @@@@@@@@@")
 
         writer.close()
-        print("######## (",self.category, ") save finish #########")
+        print("######## (",category, ") save finish #########")
         return
 
 if __name__ == "__main__":
     crawling_list = [
-        '교통사고,위반', '가족,이혼', '소비자관련법,상법', '재판, 소송절차',
+        '교통사고,위반', '가족,이혼', '소비자관련법,상법', '재판,소송절차',
         '형벌,형집행', '외국법', '민법', '등기', '부동산', '지식재산권', '청소년관련법',
         '계약', '법학,법이론', '헌법', '민사소송', '민사집행', '신용,파산',
         '형사사건', '손해배상', '언론,미디어법', '행정법', '노동법', '산업재해'
     ]
     Crawler = NaverLawCrawler() # 변호사 답변 질문 리스트
      # 변호사 답변 질문 리스트
-    for category in crawling_list:
+    for category in crawling_list[18:]:
         Crawler.crawling(category, True)
         Crawler.crawling(category, False)
         
